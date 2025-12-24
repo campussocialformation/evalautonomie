@@ -1,0 +1,1443 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Eval'autonomie - Générateur d'évaluation personnalisée</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #1a5f5f;
+            --primary-light: #2d8080;
+            --primary-dark: #0d3d3d;
+            --accent: #e07a3f;
+            --accent-light: #f09661;
+            --bg-main: #fdfcfa;
+            --bg-secondary: #f5f2ed;
+            --bg-card: #ffffff;
+            --text-primary: #1f1f1f;
+            --text-secondary: #5f5f5f;
+            --text-tertiary: #8f8f8f;
+            --border: #e0dbd2;
+            --border-light: #f0ebe2;
+            --success: #2d8659;
+            --warning: #d9a036;
+            --shadow-sm: 0 2px 8px rgba(26, 95, 95, 0.06);
+            --shadow-md: 0 4px 16px rgba(26, 95, 95, 0.1);
+            --shadow-lg: 0 8px 24px rgba(26, 95, 95, 0.15);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: var(--bg-main);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+        }
+
+        /* Header */
+        header {
+            text-align: center;
+            margin-bottom: 3rem;
+            animation: fadeInDown 0.6s ease-out;
+        }
+
+        .logo {
+            display: inline-block;
+            padding: 0.5rem 1.5rem;
+            background: linear-gradient(135deg, var(--primary), var(--primary-light));
+            color: white;
+            border-radius: 50px;
+            font-family: 'Playfair Display', serif;
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            letter-spacing: 0.02em;
+        }
+
+        .tagline {
+            font-size: 1.1rem;
+            color: var(--text-secondary);
+            font-weight: 400;
+        }
+
+        /* Navigation Steps */
+        .steps {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            margin-bottom: 3rem;
+            animation: fadeIn 0.8s ease-out;
+        }
+
+        .step {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            padding: 1rem 1.5rem;
+            background: var(--bg-card);
+            border-radius: 12px;
+            border: 2px solid var(--border);
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .step.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+            box-shadow: var(--shadow-md);
+        }
+
+        .step.completed {
+            background: var(--success);
+            color: white;
+            border-color: var(--success);
+        }
+
+        .step-number {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: var(--bg-secondary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.9rem;
+        }
+
+        .step.active .step-number,
+        .step.completed .step-number {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Phase Container */
+        .phase {
+            display: none;
+        }
+
+        .phase.active {
+            display: block;
+            animation: fadeInUp 0.5s ease-out;
+        }
+
+        /* Card Styles */
+        .card {
+            background: var(--bg-card);
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border-light);
+            margin-bottom: 1.5rem;
+        }
+
+        .card-title {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.6rem;
+            color: var(--primary);
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+
+        .card-subtitle {
+            color: var(--text-secondary);
+            margin-bottom: 1.5rem;
+            font-size: 0.95rem;
+        }
+
+        /* Configuration Phase */
+        .config-layout {
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 2rem;
+        }
+
+        .items-library {
+            background: var(--bg-card);
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border-light);
+        }
+
+        .domain-section {
+            margin-bottom: 2rem;
+        }
+
+        .domain-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem;
+            background: linear-gradient(135deg, var(--primary-dark), var(--primary));
+            color: white;
+            border-radius: 10px;
+            margin-bottom: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .domain-header:hover {
+            transform: translateX(4px);
+        }
+
+        .domain-icon {
+            font-size: 1.5rem;
+        }
+
+        .domain-name {
+            font-weight: 600;
+            font-size: 1.1rem;
+            flex: 1;
+        }
+
+        .domain-count {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 0.3rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+        }
+
+        .items-grid {
+            display: grid;
+            gap: 0.8rem;
+            margin-top: 1rem;
+            padding-left: 1rem;
+        }
+
+        .item {
+            padding: 1rem;
+            background: var(--bg-secondary);
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            cursor: move;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+        }
+
+        .item:hover {
+            background: var(--bg-card);
+            border-color: var(--primary-light);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .item.dragging {
+            opacity: 0.5;
+        }
+
+        .item-grip {
+            color: var(--text-tertiary);
+            font-size: 1.2rem;
+        }
+
+        .item-text {
+            flex: 1;
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+
+        .item-add-btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .item-add-btn:hover {
+            background: var(--primary-light);
+            transform: scale(1.1);
+        }
+
+        .selected-items-panel {
+            background: var(--bg-card);
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: var(--shadow-md);
+            border: 2px dashed var(--border);
+            position: sticky;
+            top: 2rem;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .selected-items-panel.drag-over {
+            border-color: var(--primary);
+            background: var(--bg-secondary);
+        }
+
+        .selected-item {
+            padding: 1rem;
+            background: var(--bg-main);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-bottom: 0.8rem;
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        .selected-item-domain {
+            font-size: 0.75rem;
+            color: white;
+            background: var(--primary);
+            padding: 0.2rem 0.6rem;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+
+        .selected-item-text {
+            flex: 1;
+            font-size: 0.9rem;
+        }
+
+        .selected-item-remove {
+            background: var(--accent);
+            color: white;
+            border: none;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .selected-item-remove:hover {
+            background: #c66a2f;
+            transform: scale(1.1);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem 1rem;
+            color: var(--text-tertiary);
+        }
+
+        .empty-state-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            opacity: 0.3;
+        }
+
+        /* Buttons */
+        .btn-group {
+            display: flex;
+            gap: 1rem;
+            margin-top: 2rem;
+            justify-content: flex-end;
+        }
+
+        .btn {
+            padding: 1rem 2rem;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: 'DM Sans', sans-serif;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-light);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: var(--primary);
+            border: 2px solid var(--primary);
+        }
+
+        .btn-secondary:hover {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-accent {
+            background: var(--accent);
+            color: white;
+        }
+
+        .btn-accent:hover {
+            background: var(--accent-light);
+            transform: translateY(-2px);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        /* Question Phase */
+        .question-block {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 1.5rem;
+            border: 1px solid var(--border-light);
+            box-shadow: var(--shadow-sm);
+            animation: fadeInUp 0.4s ease-out;
+        }
+
+        .question-header {
+            display: flex;
+            align-items: flex-start;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .question-number {
+            background: var(--primary);
+            color: white;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+
+        .question-content {
+            flex: 1;
+        }
+
+        .question-domain-tag {
+            display: inline-block;
+            font-size: 0.75rem;
+            color: white;
+            background: var(--primary-light);
+            padding: 0.2rem 0.8rem;
+            border-radius: 4px;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+
+        .question-text {
+            font-size: 1.05rem;
+            font-weight: 500;
+            line-height: 1.5;
+            color: var(--text-primary);
+        }
+
+        .rating-scale {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1rem;
+        }
+
+        .rating-option {
+            position: relative;
+        }
+
+        .rating-option input[type="radio"] {
+            display: none;
+        }
+
+        .rating-label {
+            display: block;
+            padding: 1.2rem 1rem;
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: var(--bg-main);
+            height: 100%;
+        }
+
+        .rating-label:hover {
+            border-color: var(--primary);
+            background: var(--bg-card);
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .rating-option input[type="radio"]:checked + .rating-label {
+            background: linear-gradient(135deg, var(--primary), var(--primary-light));
+            color: white;
+            border-color: var(--primary);
+            transform: scale(1.05);
+        }
+
+        .rating-value {
+            display: block;
+            font-weight: 700;
+            font-size: 1.8rem;
+            margin-bottom: 0.3rem;
+        }
+
+        .rating-label-text {
+            font-weight: 600;
+            font-size: 0.9rem;
+            margin-bottom: 0.2rem;
+        }
+
+        .rating-description {
+            font-size: 0.8rem;
+            opacity: 0.85;
+        }
+
+        .progress-indicator {
+            background: var(--bg-secondary);
+            padding: 1.5rem;
+            border-radius: 12px;
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+
+        .progress-text {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+        }
+
+        .progress-bar {
+            background: var(--border);
+            height: 8px;
+            border-radius: 20px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), var(--primary-light));
+            transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            border-radius: 20px;
+        }
+
+        /* Results Phase */
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin: 2rem 0;
+        }
+
+        .result-card {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 1.5rem;
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-sm);
+            transition: all 0.3s ease;
+        }
+
+        .result-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .result-domain {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+
+        .result-score {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--primary);
+            font-family: 'Playfair Display', serif;
+        }
+
+        .result-label {
+            font-size: 0.9rem;
+            color: var(--text-tertiary);
+        }
+
+        .chart-container {
+            background: var(--bg-card);
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: var(--shadow-sm);
+            margin: 2rem 0;
+        }
+
+        /* Import/Export */
+        .import-section {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .file-input-wrapper {
+            position: relative;
+            display: inline-block;
+        }
+
+        .file-input {
+            position: absolute;
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .file-input-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.8rem 1.5rem;
+            background: var(--primary);
+            color: white;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .file-input-label:hover {
+            background: var(--primary-light);
+        }
+
+        /* Animations */
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        /* Mobile Responsive */
+        @media (max-width: 1024px) {
+            .config-layout {
+                grid-template-columns: 1fr;
+            }
+
+            .selected-items-panel {
+                position: relative;
+                max-height: none;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+
+            .logo {
+                font-size: 1.5rem;
+            }
+
+            .steps {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+
+            .step {
+                padding: 0.8rem 1rem;
+            }
+
+            .card {
+                padding: 1.5rem;
+            }
+
+            .rating-scale {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .btn-group {
+                flex-direction: column;
+            }
+
+            .btn {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .item {
+                cursor: default;
+            }
+
+            .item-grip {
+                display: none;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .rating-scale {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Utility */
+        .hidden {
+            display: none !important;
+        }
+
+        .text-center {
+            text-align: center;
+        }
+
+        .mt-2 {
+            margin-top: 2rem;
+        }
+
+        /* Info boxes */
+        .info-box {
+            background: #fff9f0;
+            border-left: 4px solid var(--accent);
+            padding: 1.2rem;
+            border-radius: 8px;
+            margin: 1.5rem 0;
+            font-size: 0.95rem;
+        }
+
+        .info-box strong {
+            color: var(--accent);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo">Eval'autonomie</div>
+            <p class="tagline">Générateur d'évaluation personnalisée pour la transition</p>
+        </header>
+
+        <div class="steps">
+            <div class="step active" data-step="1">
+                <div class="step-number">1</div>
+                <div>Configuration</div>
+            </div>
+            <div class="step" data-step="2">
+                <div class="step-number">2</div>
+                <div>Évaluation</div>
+            </div>
+            <div class="step" data-step="3">
+                <div class="step-number">3</div>
+                <div>Résultats</div>
+            </div>
+        </div>
+
+        <!-- PHASE 1: Configuration -->
+        <div class="phase active" id="phase1">
+            <div class="import-section">
+                <h3 style="margin-bottom: 1rem;">💾 Importer une configuration</h3>
+                <div class="file-input-wrapper">
+                    <input type="file" id="importCSV" class="file-input" accept=".csv" onchange="importConfiguration()">
+                    <label for="importCSV" class="file-input-label">
+                        📁 Charger un fichier CSV
+                    </label>
+                </div>
+                <span id="importFileName" style="margin-left: 1rem; color: var(--text-secondary);"></span>
+            </div>
+
+            <div class="config-layout">
+                <div class="items-library">
+                    <h2 class="card-title">Bibliothèque d'items</h2>
+                    <p class="card-subtitle">Sélectionnez les compétences à évaluer en les glissant vers la droite ou en cliquant sur le bouton +</p>
+                    <div id="itemsLibrary"></div>
+                </div>
+
+                <div class="selected-items-panel" id="dropZone">
+                    <h3 style="margin-bottom: 1rem; color: var(--primary);">
+                        <span id="selectedCount">0</span> items sélectionnés
+                    </h3>
+                    <div id="selectedItems">
+                        <div class="empty-state">
+                            <div class="empty-state-icon">📋</div>
+                            <p>Glissez les items ici ou cliquez sur le bouton +</p>
+                        </div>
+                    </div>
+                    <div class="btn-group">
+                        <button class="btn btn-secondary" onclick="clearSelection()">Tout effacer</button>
+                        <button class="btn btn-primary" onclick="goToEvaluation()" id="btnStartEvaluation" disabled>
+                            Démarrer l'évaluation →
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PHASE 2: Évaluation -->
+        <div class="phase" id="phase2">
+            <div class="progress-indicator">
+                <div class="progress-text" id="progressText">Question 1 sur X</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+            </div>
+
+            <div id="questionsContainer"></div>
+
+            <div class="btn-group">
+                <button class="btn btn-secondary" onclick="backToConfiguration()">← Retour</button>
+                <button class="btn btn-primary" onclick="goToResults()">Voir les résultats →</button>
+            </div>
+        </div>
+
+        <!-- PHASE 3: Résultats -->
+        <div class="phase" id="phase3">
+            <div class="card">
+                <h2 class="card-title">Résultats de l'évaluation</h2>
+                <p class="card-subtitle">Synthèse des compétences évaluées</p>
+
+                <div class="chart-container">
+                    <canvas id="resultsChart"></canvas>
+                </div>
+
+                <div class="results-grid" id="resultsGrid"></div>
+
+                <div class="info-box">
+                    <strong>Interprétation des scores :</strong><br>
+                    0 = Non acquis (ne peut pas réaliser) | 1 = En cours (avec aide importante) | 
+                    2 = Partiellement acquis (avec aide ponctuelle) | 3 = Acquis (autonome)
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn btn-secondary" onclick="backToEvaluation()">← Modifier les réponses</button>
+                    <button class="btn btn-accent" onclick="exportToCSV()">📊 Exporter CSV</button>
+                    <button class="btn btn-accent" onclick="exportToPDF()">📄 Exporter PDF</button>
+                    <button class="btn btn-secondary" onclick="resetAll()">🔄 Nouvelle évaluation</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script>
+        // Base de données complète des items
+        const itemsDatabase = {
+            travail: {
+                name: 'Compétences professionnelles',
+                icon: '💼',
+                items: [
+                    'Réaliser des tâches simples de manière autonome (tri, classement, pliage)',
+                    'Respecter les consignes données pour une tâche',
+                    'Maintenir son attention sur une activité durant 15-20 minutes',
+                    'Prendre des initiatives pour améliorer son travail',
+                    'Utiliser des outils ou équipements de manière appropriée',
+                    'Gérer son rythme de travail de façon adaptée',
+                    'Reconnaître et corriger ses erreurs',
+                    'Organiser son poste de travail',
+                    'Respecter les procédures de sécurité',
+                    'Réaliser des tâches répétitives avec constance',
+                    'Adapter sa production aux exigences de qualité',
+                    'Gérer plusieurs étapes d\'une tâche complexe',
+                    'Utiliser du matériel informatique de base',
+                    'Comprendre et appliquer des pictogrammes professionnels',
+                    'Anticiper les besoins en matériel pour sa tâche'
+                ]
+            },
+            comportement: {
+                name: 'Comportement au travail',
+                icon: '🤝',
+                items: [
+                    'Accepter les remarques ou corrections de manière constructive',
+                    'Travailler en présence d\'autres personnes sans se laisser distraire',
+                    'Respecter les horaires et la ponctualité',
+                    'Gérer ses frustrations de manière adaptée en milieu de travail',
+                    'Demander de l\'aide quand nécessaire',
+                    'Respecter les règles de l\'atelier ou du lieu de travail',
+                    'Maintenir une attitude professionnelle appropriée',
+                    'Gérer les transitions entre différentes activités',
+                    'Respecter l\'autorité et la hiérarchie',
+                    'Travailler en équipe sur un projet commun',
+                    'Accepter les changements de planning ou de tâche',
+                    'Contrôler ses impulsions en situation de stress',
+                    'Respecter les pauses et temps de repos',
+                    'Adopter une posture de travail adéquate',
+                    'Maintenir son calme face aux imprévus'
+                ]
+            },
+            communication: {
+                name: 'Communication fonctionnelle',
+                icon: '💬',
+                items: [
+                    'Exprimer clairement ses besoins de base (faim, soif, fatigue)',
+                    'Comprendre des consignes verbales simples',
+                    'Utiliser des formules de politesse de manière appropriée',
+                    'Répondre à des questions simples sur soi-même',
+                    'Initier des échanges avec les autres',
+                    'Maintenir un contact visuel approprié',
+                    'Adapter son ton de voix au contexte',
+                    'Comprendre les expressions faciales et le langage corporel',
+                    'Exprimer ses émotions de façon adaptée',
+                    'Participer à une conversation de groupe',
+                    'Utiliser le téléphone pour des échanges simples',
+                    'Comprendre et suivre des consignes écrites courtes',
+                    'Rédiger des messages simples (SMS, note)',
+                    'Demander des clarifications si incompréhension',
+                    'Respecter le tour de parole dans un échange'
+                ]
+            },
+            deplacement: {
+                name: 'Autonomie dans les déplacements',
+                icon: '🚶',
+                items: [
+                    'Se déplacer seul dans un environnement familier',
+                    'Utiliser les transports en commun pour des trajets connus',
+                    'Respecter les règles de sécurité lors des déplacements',
+                    'Se repérer avec des indications simples',
+                    'Demander de l\'aide si perdu ou désorienté',
+                    'Traverser une rue en toute sécurité',
+                    'Utiliser un plan ou une carte simplifiée',
+                    'Reconnaître les panneaux de signalisation importants',
+                    'Gérer un titre de transport (ticket, carte)',
+                    'Planifier un trajet simple avec un changement',
+                    'Évaluer les distances et le temps de trajet',
+                    'Utiliser une application GPS sur smartphone',
+                    'Gérer ses affaires personnelles pendant le déplacement',
+                    'Adapter son comportement dans les transports publics',
+                    'Identifier les lieux d\'intérêt dans son quartier'
+                ]
+            },
+            loisirs: {
+                name: 'Loisirs et temps libre',
+                icon: '🎨',
+                items: [
+                    'Avoir des activités de loisirs qu\'il/elle apprécie',
+                    'Occuper son temps libre de manière appropriée',
+                    'Participer à des activités collectives (sport, club, etc.)',
+                    'Faire preuve de créativité dans ses loisirs',
+                    'Gérer du matériel de loisirs (jeux, équipement sportif)',
+                    'Respecter les règles d\'un jeu ou d\'un sport',
+                    'Initier une activité de loisir de façon autonome',
+                    'Partager une activité avec d\'autres personnes',
+                    'Gérer la frustration face à la défaite ou l\'échec',
+                    'Explorer de nouvelles activités',
+                    'Entretenir son matériel de loisirs',
+                    'Planifier ses activités de temps libre',
+                    'Utiliser des ressources numériques (tablette, console)',
+                    'Respecter les horaires d\'ouverture des lieux de loisirs',
+                    'Gérer un budget loisirs simple'
+                ]
+            },
+            domestique: {
+                name: 'Compétences domestiques',
+                icon: '🏠',
+                items: [
+                    'Assurer son hygiène corporelle de manière autonome',
+                    'Préparer des repas simples',
+                    'Entretenir ses vêtements (rangement, lavage)',
+                    'Ranger et nettoyer son espace de vie',
+                    'Gérer ses effets personnels de manière responsable',
+                    'Faire ses courses pour des besoins courants',
+                    'Utiliser les équipements ménagers de base',
+                    'Trier et gérer ses déchets',
+                    'Gérer son linge (lessive, étendage, pliage)',
+                    'Maintenir son espace de vie en ordre',
+                    'Gérer l\'entretien de base de sa chambre',
+                    'Utiliser les appareils électroménagers en sécurité',
+                    'Planifier les tâches ménagères hebdomadaires',
+                    'Gérer les stocks de produits de première nécessité',
+                    'Prendre soin de ses objets personnels',
+                    'Respecter les règles d\'hygiène alimentaire',
+                    'Gérer son budget courses',
+                    'Utiliser une liste de courses',
+                    'Choisir des vêtements adaptés à la météo',
+                    'Gérer son sommeil et son repos'
+                ]
+            }
+        };
+
+        let selectedItems = [];
+        let responses = {};
+        let currentChart = null;
+
+        // Initialisation
+        document.addEventListener('DOMContentLoaded', function() {
+            renderItemsLibrary();
+            setupDragAndDrop();
+        });
+
+        // Rendu de la bibliothèque d'items
+        function renderItemsLibrary() {
+            const container = document.getElementById('itemsLibrary');
+            let html = '';
+
+            Object.keys(itemsDatabase).forEach(domainId => {
+                const domain = itemsDatabase[domainId];
+                html += `
+                    <div class="domain-section">
+                        <div class="domain-header" onclick="toggleDomain('${domainId}')">
+                            <span class="domain-icon">${domain.icon}</span>
+                            <span class="domain-name">${domain.name}</span>
+                            <span class="domain-count">${domain.items.length} items</span>
+                        </div>
+                        <div class="items-grid" id="items-${domainId}">
+                            ${domain.items.map((item, index) => `
+                                <div class="item" draggable="true" data-domain="${domainId}" data-index="${index}">
+                                    <span class="item-grip">⋮⋮</span>
+                                    <span class="item-text">${item}</span>
+                                    <button class="item-add-btn" onclick="addItemToSelection('${domainId}', ${index})">+</button>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        // Toggle domaine
+        function toggleDomain(domainId) {
+            const grid = document.getElementById(`items-${domainId}`);
+            grid.style.display = grid.style.display === 'none' ? 'grid' : 'none';
+        }
+
+        // Setup Drag and Drop
+        function setupDragAndDrop() {
+            const dropZone = document.getElementById('dropZone');
+
+            // Drag start
+            document.addEventListener('dragstart', function(e) {
+                if (e.target.classList.contains('item')) {
+                    e.target.classList.add('dragging');
+                    e.dataTransfer.effectAllowed = 'copy';
+                    e.dataTransfer.setData('domain', e.target.dataset.domain);
+                    e.dataTransfer.setData('index', e.target.dataset.index);
+                }
+            });
+
+            document.addEventListener('dragend', function(e) {
+                if (e.target.classList.contains('item')) {
+                    e.target.classList.remove('dragging');
+                }
+            });
+
+            // Drop zone events
+            dropZone.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'copy';
+                dropZone.classList.add('drag-over');
+            });
+
+            dropZone.addEventListener('dragleave', function(e) {
+                if (e.target === dropZone) {
+                    dropZone.classList.remove('drag-over');
+                }
+            });
+
+            dropZone.addEventListener('drop', function(e) {
+                e.preventDefault();
+                dropZone.classList.remove('drag-over');
+                
+                const domain = e.dataTransfer.getData('domain');
+                const index = parseInt(e.dataTransfer.getData('index'));
+                
+                addItemToSelection(domain, index);
+            });
+        }
+
+        // Ajouter un item à la sélection
+        function addItemToSelection(domainId, index) {
+            const item = {
+                domain: domainId,
+                domainName: itemsDatabase[domainId].name,
+                text: itemsDatabase[domainId].items[index],
+                id: `${domainId}_${index}`
+            };
+
+            // Vérifier si déjà sélectionné
+            if (selectedItems.find(i => i.id === item.id)) {
+                return;
+            }
+
+            selectedItems.push(item);
+            renderSelectedItems();
+            updateSelectedCount();
+        }
+
+        // Rendu des items sélectionnés
+        function renderSelectedItems() {
+            const container = document.getElementById('selectedItems');
+            
+            if (selectedItems.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📋</div>
+                        <p>Glissez les items ici ou cliquez sur le bouton +</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = selectedItems.map(item => `
+                <div class="selected-item">
+                    <span class="selected-item-domain">${item.domainName}</span>
+                    <span class="selected-item-text">${item.text}</span>
+                    <button class="selected-item-remove" onclick="removeItem('${item.id}')">×</button>
+                </div>
+            `).join('');
+        }
+
+        // Retirer un item
+        function removeItem(itemId) {
+            selectedItems = selectedItems.filter(i => i.id !== itemId);
+            renderSelectedItems();
+            updateSelectedCount();
+        }
+
+        // Mettre à jour le compteur
+        function updateSelectedCount() {
+            document.getElementById('selectedCount').textContent = selectedItems.length;
+            document.getElementById('btnStartEvaluation').disabled = selectedItems.length === 0;
+        }
+
+        // Effacer la sélection
+        function clearSelection() {
+            if (confirm('Voulez-vous vraiment effacer tous les items sélectionnés ?')) {
+                selectedItems = [];
+                renderSelectedItems();
+                updateSelectedCount();
+            }
+        }
+
+        // Aller à l'évaluation
+        function goToEvaluation() {
+            if (selectedItems.length === 0) return;
+
+            renderQuestions();
+            switchPhase(2);
+            updateProgress();
+        }
+
+        // Rendu des questions
+        function renderQuestions() {
+            const container = document.getElementById('questionsContainer');
+            
+            container.innerHTML = selectedItems.map((item, index) => `
+                <div class="question-block">
+                    <div class="question-header">
+                        <div class="question-number">${index + 1}</div>
+                        <div class="question-content">
+                            <span class="question-domain-tag">${item.domainName}</span>
+                            <div class="question-text">${item.text}</div>
+                        </div>
+                    </div>
+                    <div class="rating-scale">
+                        ${[
+                            { value: 0, label: 'Non acquis', description: 'Ne peut pas réaliser' },
+                            { value: 1, label: 'En cours', description: 'Avec aide importante' },
+                            { value: 2, label: 'Partiellement', description: 'Avec aide ponctuelle' },
+                            { value: 3, label: 'Acquis', description: 'Autonome' }
+                        ].map(rating => `
+                            <div class="rating-option">
+                                <input type="radio" 
+                                       id="q${index}_${rating.value}" 
+                                       name="q${index}" 
+                                       value="${rating.value}"
+                                       onchange="saveResponse(${index}, ${rating.value})">
+                                <label class="rating-label" for="q${index}_${rating.value}">
+                                    <span class="rating-value">${rating.value}</span>
+                                    <span class="rating-label-text">${rating.label}</span>
+                                    <span class="rating-description">${rating.description}</span>
+                                </label>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('');
+
+            document.getElementById('progressText').textContent = `0 sur ${selectedItems.length} questions répondues`;
+        }
+
+        // Sauvegarder une réponse
+        function saveResponse(questionIndex, value) {
+            responses[questionIndex] = value;
+            updateProgress();
+        }
+
+        // Mettre à jour la progression
+        function updateProgress() {
+            const answered = Object.keys(responses).length;
+            const total = selectedItems.length;
+            const percentage = (answered / total) * 100;
+
+            document.getElementById('progressText').textContent = `${answered} sur ${total} questions répondues`;
+            document.getElementById('progressFill').style.width = percentage + '%';
+        }
+
+        // Aller aux résultats
+        function goToResults() {
+            calculateAndDisplayResults();
+            switchPhase(3);
+        }
+
+        // Calculer et afficher les résultats
+        function calculateAndDisplayResults() {
+            const resultsByDomain = {};
+
+            // Initialiser
+            Object.keys(itemsDatabase).forEach(domainId => {
+                resultsByDomain[domainId] = {
+                    name: itemsDatabase[domainId].name,
+                    scores: [],
+                    average: 0
+                };
+            });
+
+            // Calculer
+            selectedItems.forEach((item, index) => {
+                if (responses[index] !== undefined) {
+                    resultsByDomain[item.domain].scores.push(responses[index]);
+                }
+            });
+
+            // Moyennes
+            Object.keys(resultsByDomain).forEach(domainId => {
+                const scores = resultsByDomain[domainId].scores;
+                if (scores.length > 0) {
+                    resultsByDomain[domainId].average = (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(2);
+                }
+            });
+
+            // Afficher les cartes de résultats
+            const grid = document.getElementById('resultsGrid');
+            grid.innerHTML = Object.keys(resultsByDomain)
+                .filter(domainId => resultsByDomain[domainId].scores.length > 0)
+                .map(domainId => {
+                    const result = resultsByDomain[domainId];
+                    return `
+                        <div class="result-card">
+                            <div class="result-domain">${result.name}</div>
+                            <div class="result-score">${result.average}<span style="font-size: 1.5rem; color: var(--text-tertiary);">/3</span></div>
+                            <div class="result-label">${result.scores.length} items évalués</div>
+                        </div>
+                    `;
+                }).join('');
+
+            // Créer le graphique radar
+            renderChart(resultsByDomain);
+        }
+
+        // Rendu du graphique
+        function renderChart(resultsByDomain) {
+            const ctx = document.getElementById('resultsChart').getContext('2d');
+            
+            if (currentChart) {
+                currentChart.destroy();
+            }
+
+            const domains = Object.keys(resultsByDomain).filter(d => resultsByDomain[d].scores.length > 0);
+            
+            currentChart = new Chart(ctx, {
+                type: 'radar',
+                data: {
+                    labels: domains.map(d => resultsByDomain[d].name),
+                    datasets: [{
+                        label: 'Score moyen',
+                        data: domains.map(d => parseFloat(resultsByDomain[d].average)),
+                        backgroundColor: 'rgba(26, 95, 95, 0.2)',
+                        borderColor: 'rgba(26, 95, 95, 1)',
+                        borderWidth: 2,
+                        pointBackgroundColor: 'rgba(224, 122, 63, 1)',
+                        pointBorderColor: '#fff',
+                        pointHoverBackgroundColor: '#fff',
+                        pointHoverBorderColor: 'rgba(224, 122, 63, 1)',
+                        pointRadius: 6,
+                        pointHoverRadius: 8
+                    }]
+                },
+                options: {
+                    scales: {
+                        r: {
+                            beginAtZero: true,
+                            max: 3,
+                            ticks: {
+                                stepSize: 0.5,
+                                font: { size: 12 }
+                            },
+                            pointLabels: {
+                                font: { size: 13, weight: '500' }
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    maintainAspectRatio: true,
+                    responsive: true
+                }
+            });
+        }
+
+        // Export CSV
+        function exportToCSV() {
+            let csv = 'Domaine,Item,Score\n';
+            
+            selectedItems.forEach((item, index) => {
+                const score = responses[index] !== undefined ? responses[index] : '';
+                csv += `"${item.domainName}","${item.text}","${score}"\n`;
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', `eval-autonomie-${new Date().toISOString().split('T')[0]}.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // Import CSV
+        function importConfiguration() {
+            const file = document.getElementById('importCSV').files[0];
+            if (!file) return;
+
+            document.getElementById('importFileName').textContent = file.name;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const text = e.target.result;
+                const lines = text.split('\n');
+                
+                selectedItems = [];
+                responses = {};
+
+                lines.slice(1).forEach((line, lineIndex) => {
+                    if (!line.trim()) return;
+                    
+                    const matches = line.match(/(?:^|,)("(?:[^"]|"")*"|[^,]*)/g);
+                    if (!matches || matches.length < 3) return;
+
+                    const domain = matches[0].replace(/^,?"?|"?$/g, '');
+                    const text = matches[1].replace(/^,?"?|"?$/g, '');
+                    const score = matches[2].replace(/^,?"?|"?$/g, '');
+
+                    // Trouver le domaine correspondant
+                    const domainId = Object.keys(itemsDatabase).find(d => 
+                        itemsDatabase[d].name === domain
+                    );
+
+                    if (domainId) {
+                        const item = {
+                            domain: domainId,
+                            domainName: domain,
+                            text: text,
+                            id: `${domainId}_${lineIndex}`
+                        };
+                        selectedItems.push(item);
+
+                        if (score !== '') {
+                            responses[selectedItems.length - 1] = parseInt(score);
+                        }
+                    }
+                });
+
+                renderSelectedItems();
+                updateSelectedCount();
+                alert('Configuration importée avec succès !');
+            };
+
+            reader.readAsText(file);
+        }
+
+        // Export PDF
+        function exportToPDF() {
+            window.print();
+        }
+
+        // Navigation entre phases
+        function switchPhase(phaseNumber) {
+            document.querySelectorAll('.phase').forEach(p => p.classList.remove('active'));
+            document.getElementById(`phase${phaseNumber}`).classList.add('active');
+
+            document.querySelectorAll('.step').forEach(s => s.classList.remove('active', 'completed'));
+            document.querySelectorAll('.step').forEach((s, i) => {
+                if (i + 1 < phaseNumber) s.classList.add('completed');
+                if (i + 1 === phaseNumber) s.classList.add('active');
+            });
+
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function backToConfiguration() {
+            switchPhase(1);
+        }
+
+        function backToEvaluation() {
+            switchPhase(2);
+        }
+
+        function resetAll() {
+            if (confirm('Voulez-vous vraiment recommencer ? Toutes les données seront perdues.')) {
+                selectedItems = [];
+                responses = {};
+                renderSelectedItems();
+                updateSelectedCount();
+                switchPhase(1);
+            }
+        }
+    </script>
+</body>
+</html>
