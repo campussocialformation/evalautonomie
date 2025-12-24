@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:;">
     <title>Eval'autonomie - Générateur d'évaluation personnalisée</title>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -22,6 +23,7 @@
             --border-light: #f0ebe2;
             --success: #2d8659;
             --warning: #d9a036;
+            --error: #d64545;
             --shadow-sm: 0 2px 8px rgba(26, 95, 95, 0.06);
             --shadow-md: 0 4px 16px rgba(26, 95, 95, 0.1);
             --shadow-lg: 0 8px 24px rgba(26, 95, 95, 0.15);
@@ -45,6 +47,31 @@
             max-width: 1400px;
             margin: 0 auto;
             padding: 2rem 1.5rem;
+        }
+
+        /* Security Alert */
+        .security-alert {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 2rem;
+            display: none;
+        }
+
+        .security-alert.show {
+            display: block;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .security-alert.error {
+            background: #f8d7da;
+            border-color: var(--error);
+        }
+
+        .security-alert strong {
+            display: block;
+            margin-bottom: 0.5rem;
         }
 
         /* Header */
@@ -763,6 +790,8 @@
 </head>
 <body>
     <div class="container">
+        <div class="security-alert" id="securityAlert"></div>
+
         <header>
             <div class="logo">Eval'autonomie</div>
             <p class="tagline">Générateur d'évaluation personnalisée pour la transition</p>
@@ -871,7 +900,64 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script>
-        // Base de données complète des items
+        // ========================================
+        // SÉCURITÉ - Fonctions de sanitization
+        // ========================================
+        
+        const Security = {
+            // Échapper le HTML pour prévenir XSS
+            escapeHtml: function(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            },
+
+            // Nettoyer les données CSV
+            sanitizeCSVValue: function(value) {
+                if (typeof value !== 'string') return '';
+                
+                // Supprimer les formules Excel potentiellement dangereuses
+                const dangerousChars = ['=', '+', '-', '@', '\t', '\r'];
+                if (dangerousChars.some(char => value.trim().startsWith(char))) {
+                    // Ajouter un apostrophe pour neutraliser la formule
+                    value = "'" + value;
+                }
+                
+                // Limiter la longueur
+                return value.substring(0, 500);
+            },
+
+            // Valider le score
+            validateScore: function(score) {
+                const parsed = parseInt(score);
+                if (isNaN(parsed) || parsed < 0 || parsed > 3) {
+                    return null;
+                }
+                return parsed;
+            },
+
+            // Vérifier la taille du fichier
+            validateFileSize: function(file) {
+                const maxSize = 5 * 1024 * 1024; // 5 Mo
+                return file.size <= maxSize;
+            },
+
+            // Afficher une alerte de sécurité
+            showAlert: function(message, type = 'warning') {
+                const alert = document.getElementById('securityAlert');
+                alert.className = 'security-alert show ' + type;
+                alert.innerHTML = '<strong>⚠️ Alerte de sécurité</strong>' + message;
+                
+                setTimeout(() => {
+                    alert.classList.remove('show');
+                }, 5000);
+            }
+        };
+
+        // ========================================
+        // BASE DE DONNÉES
+        // ========================================
+        
         const itemsDatabase = {
             travail: {
                 name: 'Compétences professionnelles',
@@ -1010,53 +1096,88 @@
         let responses = {};
         let currentChart = null;
 
-        // Initialisation
+        // ========================================
+        // INITIALISATION
+        // ========================================
+        
         document.addEventListener('DOMContentLoaded', function() {
             renderItemsLibrary();
             setupDragAndDrop();
         });
 
-        // Rendu de la bibliothèque d'items
+        // ========================================
+        // RENDU DE L'INTERFACE
+        // ========================================
+        
         function renderItemsLibrary() {
             const container = document.getElementById('itemsLibrary');
-            let html = '';
+            const fragment = document.createDocumentFragment();
 
             Object.keys(itemsDatabase).forEach(domainId => {
                 const domain = itemsDatabase[domainId];
-                html += `
-                    <div class="domain-section">
-                        <div class="domain-header" onclick="toggleDomain('${domainId}')">
-                            <span class="domain-icon">${domain.icon}</span>
-                            <span class="domain-name">${domain.name}</span>
-                            <span class="domain-count">${domain.items.length} items</span>
-                        </div>
-                        <div class="items-grid" id="items-${domainId}">
-                            ${domain.items.map((item, index) => `
-                                <div class="item" draggable="true" data-domain="${domainId}" data-index="${index}">
-                                    <span class="item-grip">⋮⋮</span>
-                                    <span class="item-text">${item}</span>
-                                    <button class="item-add-btn" onclick="addItemToSelection('${domainId}', ${index})">+</button>
-                                </div>
-                            `).join('')}
-                        </div>
-                    </div>
+                
+                const section = document.createElement('div');
+                section.className = 'domain-section';
+                
+                const header = document.createElement('div');
+                header.className = 'domain-header';
+                header.onclick = () => toggleDomain(domainId);
+                header.innerHTML = `
+                    <span class="domain-icon">${domain.icon}</span>
+                    <span class="domain-name">${Security.escapeHtml(domain.name)}</span>
+                    <span class="domain-count">${domain.items.length} items</span>
                 `;
+                
+                const grid = document.createElement('div');
+                grid.className = 'items-grid';
+                grid.id = `items-${domainId}`;
+                
+                domain.items.forEach((item, index) => {
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = 'item';
+                    itemDiv.draggable = true;
+                    itemDiv.dataset.domain = domainId;
+                    itemDiv.dataset.index = index;
+                    
+                    const grip = document.createElement('span');
+                    grip.className = 'item-grip';
+                    grip.textContent = '⋮⋮';
+                    
+                    const text = document.createElement('span');
+                    text.className = 'item-text';
+                    text.textContent = item; // Pas besoin d'échapper, textContent est sûr
+                    
+                    const btn = document.createElement('button');
+                    btn.className = 'item-add-btn';
+                    btn.textContent = '+';
+                    btn.onclick = () => addItemToSelection(domainId, index);
+                    
+                    itemDiv.appendChild(grip);
+                    itemDiv.appendChild(text);
+                    itemDiv.appendChild(btn);
+                    grid.appendChild(itemDiv);
+                });
+                
+                section.appendChild(header);
+                section.appendChild(grid);
+                fragment.appendChild(section);
             });
 
-            container.innerHTML = html;
+            container.appendChild(fragment);
         }
 
-        // Toggle domaine
         function toggleDomain(domainId) {
             const grid = document.getElementById(`items-${domainId}`);
             grid.style.display = grid.style.display === 'none' ? 'grid' : 'none';
         }
 
-        // Setup Drag and Drop
+        // ========================================
+        // DRAG & DROP
+        // ========================================
+        
         function setupDragAndDrop() {
             const dropZone = document.getElementById('dropZone');
 
-            // Drag start
             document.addEventListener('dragstart', function(e) {
                 if (e.target.classList.contains('item')) {
                     e.target.classList.add('dragging');
@@ -1072,7 +1193,6 @@
                 }
             });
 
-            // Drop zone events
             dropZone.addEventListener('dragover', function(e) {
                 e.preventDefault();
                 e.dataTransfer.dropEffect = 'copy';
@@ -1096,7 +1216,10 @@
             });
         }
 
-        // Ajouter un item à la sélection
+        // ========================================
+        // GESTION DES ITEMS
+        // ========================================
+        
         function addItemToSelection(domainId, index) {
             const item = {
                 domain: domainId,
@@ -1105,7 +1228,6 @@
                 id: `${domainId}_${index}`
             };
 
-            // Vérifier si déjà sélectionné
             if (selectedItems.find(i => i.id === item.id)) {
                 return;
             }
@@ -1115,7 +1237,6 @@
             updateSelectedCount();
         }
 
-        // Rendu des items sélectionnés
         function renderSelectedItems() {
             const container = document.getElementById('selectedItems');
             
@@ -1129,29 +1250,47 @@
                 return;
             }
 
-            container.innerHTML = selectedItems.map(item => `
-                <div class="selected-item">
-                    <span class="selected-item-domain">${item.domainName}</span>
-                    <span class="selected-item-text">${item.text}</span>
-                    <button class="selected-item-remove" onclick="removeItem('${item.id}')">×</button>
-                </div>
-            `).join('');
+            // Utiliser un fragment pour de meilleures performances
+            const fragment = document.createDocumentFragment();
+            
+            selectedItems.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'selected-item';
+                
+                const domain = document.createElement('span');
+                domain.className = 'selected-item-domain';
+                domain.textContent = item.domainName;
+                
+                const text = document.createElement('span');
+                text.className = 'selected-item-text';
+                text.textContent = item.text;
+                
+                const btn = document.createElement('button');
+                btn.className = 'selected-item-remove';
+                btn.textContent = '×';
+                btn.onclick = () => removeItem(item.id);
+                
+                div.appendChild(domain);
+                div.appendChild(text);
+                div.appendChild(btn);
+                fragment.appendChild(div);
+            });
+            
+            container.innerHTML = '';
+            container.appendChild(fragment);
         }
 
-        // Retirer un item
         function removeItem(itemId) {
             selectedItems = selectedItems.filter(i => i.id !== itemId);
             renderSelectedItems();
             updateSelectedCount();
         }
 
-        // Mettre à jour le compteur
         function updateSelectedCount() {
             document.getElementById('selectedCount').textContent = selectedItems.length;
             document.getElementById('btnStartEvaluation').disabled = selectedItems.length === 0;
         }
 
-        // Effacer la sélection
         function clearSelection() {
             if (confirm('Voulez-vous vraiment effacer tous les items sélectionnés ?')) {
                 selectedItems = [];
@@ -1160,7 +1299,10 @@
             }
         }
 
-        // Aller à l'évaluation
+        // ========================================
+        // PHASE ÉVALUATION
+        // ========================================
+        
         function goToEvaluation() {
             if (selectedItems.length === 0) return;
 
@@ -1169,53 +1311,99 @@
             updateProgress();
         }
 
-        // Rendu des questions
         function renderQuestions() {
             const container = document.getElementById('questionsContainer');
+            const fragment = document.createDocumentFragment();
             
-            container.innerHTML = selectedItems.map((item, index) => `
-                <div class="question-block">
-                    <div class="question-header">
-                        <div class="question-number">${index + 1}</div>
-                        <div class="question-content">
-                            <span class="question-domain-tag">${item.domainName}</span>
-                            <div class="question-text">${item.text}</div>
-                        </div>
-                    </div>
-                    <div class="rating-scale">
-                        ${[
-                            { value: 0, label: 'Non acquis', description: 'Ne peut pas réaliser' },
-                            { value: 1, label: 'En cours', description: 'Avec aide importante' },
-                            { value: 2, label: 'Partiellement', description: 'Avec aide ponctuelle' },
-                            { value: 3, label: 'Acquis', description: 'Autonome' }
-                        ].map(rating => `
-                            <div class="rating-option">
-                                <input type="radio" 
-                                       id="q${index}_${rating.value}" 
-                                       name="q${index}" 
-                                       value="${rating.value}"
-                                       onchange="saveResponse(${index}, ${rating.value})">
-                                <label class="rating-label" for="q${index}_${rating.value}">
-                                    <span class="rating-value">${rating.value}</span>
-                                    <span class="rating-label-text">${rating.label}</span>
-                                    <span class="rating-description">${rating.description}</span>
-                                </label>
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
-            `).join('');
+            selectedItems.forEach((item, index) => {
+                const block = document.createElement('div');
+                block.className = 'question-block';
+                
+                const header = document.createElement('div');
+                header.className = 'question-header';
+                
+                const number = document.createElement('div');
+                number.className = 'question-number';
+                number.textContent = index + 1;
+                
+                const content = document.createElement('div');
+                content.className = 'question-content';
+                
+                const tag = document.createElement('span');
+                tag.className = 'question-domain-tag';
+                tag.textContent = item.domainName;
+                
+                const questionText = document.createElement('div');
+                questionText.className = 'question-text';
+                questionText.textContent = item.text;
+                
+                content.appendChild(tag);
+                content.appendChild(questionText);
+                header.appendChild(number);
+                header.appendChild(content);
+                
+                const scale = document.createElement('div');
+                scale.className = 'rating-scale';
+                
+                const ratings = [
+                    { value: 0, label: 'Non acquis', description: 'Ne peut pas réaliser' },
+                    { value: 1, label: 'En cours', description: 'Avec aide importante' },
+                    { value: 2, label: 'Partiellement', description: 'Avec aide ponctuelle' },
+                    { value: 3, label: 'Acquis', description: 'Autonome' }
+                ];
+                
+                ratings.forEach(rating => {
+                    const option = document.createElement('div');
+                    option.className = 'rating-option';
+                    
+                    const input = document.createElement('input');
+                    input.type = 'radio';
+                    input.id = `q${index}_${rating.value}`;
+                    input.name = `q${index}`;
+                    input.value = rating.value;
+                    input.onchange = () => saveResponse(index, rating.value);
+                    
+                    const label = document.createElement('label');
+                    label.className = 'rating-label';
+                    label.htmlFor = `q${index}_${rating.value}`;
+                    
+                    const valueSpan = document.createElement('span');
+                    valueSpan.className = 'rating-value';
+                    valueSpan.textContent = rating.value;
+                    
+                    const labelSpan = document.createElement('span');
+                    labelSpan.className = 'rating-label-text';
+                    labelSpan.textContent = rating.label;
+                    
+                    const descSpan = document.createElement('span');
+                    descSpan.className = 'rating-description';
+                    descSpan.textContent = rating.description;
+                    
+                    label.appendChild(valueSpan);
+                    label.appendChild(labelSpan);
+                    label.appendChild(descSpan);
+                    
+                    option.appendChild(input);
+                    option.appendChild(label);
+                    scale.appendChild(option);
+                });
+                
+                block.appendChild(header);
+                block.appendChild(scale);
+                fragment.appendChild(block);
+            });
+            
+            container.innerHTML = '';
+            container.appendChild(fragment);
 
             document.getElementById('progressText').textContent = `0 sur ${selectedItems.length} questions répondues`;
         }
 
-        // Sauvegarder une réponse
         function saveResponse(questionIndex, value) {
             responses[questionIndex] = value;
             updateProgress();
         }
 
-        // Mettre à jour la progression
         function updateProgress() {
             const answered = Object.keys(responses).length;
             const total = selectedItems.length;
@@ -1225,17 +1413,18 @@
             document.getElementById('progressFill').style.width = percentage + '%';
         }
 
-        // Aller aux résultats
+        // ========================================
+        // PHASE RÉSULTATS
+        // ========================================
+        
         function goToResults() {
             calculateAndDisplayResults();
             switchPhase(3);
         }
 
-        // Calculer et afficher les résultats
         function calculateAndDisplayResults() {
             const resultsByDomain = {};
 
-            // Initialiser
             Object.keys(itemsDatabase).forEach(domainId => {
                 resultsByDomain[domainId] = {
                     name: itemsDatabase[domainId].name,
@@ -1244,14 +1433,12 @@
                 };
             });
 
-            // Calculer
             selectedItems.forEach((item, index) => {
                 if (responses[index] !== undefined) {
                     resultsByDomain[item.domain].scores.push(responses[index]);
                 }
             });
 
-            // Moyennes
             Object.keys(resultsByDomain).forEach(domainId => {
                 const scores = resultsByDomain[domainId].scores;
                 if (scores.length > 0) {
@@ -1259,26 +1446,41 @@
                 }
             });
 
-            // Afficher les cartes de résultats
             const grid = document.getElementById('resultsGrid');
-            grid.innerHTML = Object.keys(resultsByDomain)
+            const fragment = document.createDocumentFragment();
+            
+            Object.keys(resultsByDomain)
                 .filter(domainId => resultsByDomain[domainId].scores.length > 0)
-                .map(domainId => {
+                .forEach(domainId => {
                     const result = resultsByDomain[domainId];
-                    return `
-                        <div class="result-card">
-                            <div class="result-domain">${result.name}</div>
-                            <div class="result-score">${result.average}<span style="font-size: 1.5rem; color: var(--text-tertiary);">/3</span></div>
-                            <div class="result-label">${result.scores.length} items évalués</div>
-                        </div>
-                    `;
-                }).join('');
+                    
+                    const card = document.createElement('div');
+                    card.className = 'result-card';
+                    
+                    const domainDiv = document.createElement('div');
+                    domainDiv.className = 'result-domain';
+                    domainDiv.textContent = result.name;
+                    
+                    const scoreDiv = document.createElement('div');
+                    scoreDiv.className = 'result-score';
+                    scoreDiv.innerHTML = result.average + '<span style="font-size: 1.5rem; color: var(--text-tertiary);">/3</span>';
+                    
+                    const labelDiv = document.createElement('div');
+                    labelDiv.className = 'result-label';
+                    labelDiv.textContent = `${result.scores.length} items évalués`;
+                    
+                    card.appendChild(domainDiv);
+                    card.appendChild(scoreDiv);
+                    card.appendChild(labelDiv);
+                    fragment.appendChild(card);
+                });
+            
+            grid.innerHTML = '';
+            grid.appendChild(fragment);
 
-            // Créer le graphique radar
             renderChart(resultsByDomain);
         }
 
-        // Rendu du graphique
         function renderChart(resultsByDomain) {
             const ctx = document.getElementById('resultsChart').getContext('2d');
             
@@ -1329,13 +1531,21 @@
             });
         }
 
-        // Export CSV
+        // ========================================
+        // IMPORT / EXPORT SÉCURISÉS
+        // ========================================
+        
         function exportToCSV() {
-            let csv = 'Domaine,Item,Score\n';
+            // En-tête avec BOM UTF-8 pour Excel
+            let csv = '\uFEFF';
+            csv += 'Domaine,Item,Score\n';
             
             selectedItems.forEach((item, index) => {
                 const score = responses[index] !== undefined ? responses[index] : '';
-                csv += `"${item.domainName}","${item.text}","${score}"\n`;
+                // Sanitize et escape
+                const domain = Security.sanitizeCSVValue(item.domainName).replace(/"/g, '""');
+                const text = Security.sanitizeCSVValue(item.text).replace(/"/g, '""');
+                csv += `"${domain}","${text}","${score}"\n`;
             });
 
             const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -1347,67 +1557,102 @@
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
+            URL.revokeObjectURL(url);
         }
 
-        // Import CSV
         function importConfiguration() {
             const file = document.getElementById('importCSV').files[0];
             if (!file) return;
 
-            document.getElementById('importFileName').textContent = file.name;
+            // Validation de la taille
+            if (!Security.validateFileSize(file)) {
+                Security.showAlert('Le fichier est trop volumineux (max 5 Mo).', 'error');
+                return;
+            }
+
+            document.getElementById('importFileName').textContent = Security.escapeHtml(file.name);
 
             const reader = new FileReader();
             reader.onload = function(e) {
-                const text = e.target.result;
-                const lines = text.split('\n');
-                
-                selectedItems = [];
-                responses = {};
-
-                lines.slice(1).forEach((line, lineIndex) => {
-                    if (!line.trim()) return;
+                try {
+                    const text = e.target.result;
+                    const lines = text.split('\n');
                     
-                    const matches = line.match(/(?:^|,)("(?:[^"]|"")*"|[^,]*)/g);
-                    if (!matches || matches.length < 3) return;
+                    selectedItems = [];
+                    responses = {};
+                    let warnings = 0;
 
-                    const domain = matches[0].replace(/^,?"?|"?$/g, '');
-                    const text = matches[1].replace(/^,?"?|"?$/g, '');
-                    const score = matches[2].replace(/^,?"?|"?$/g, '');
+                    lines.slice(1).forEach((line, lineIndex) => {
+                        if (!line.trim()) return;
+                        
+                        // Parser CSV de manière sécurisée
+                        const matches = line.match(/(?:^|,)("(?:[^"]|"")*"|[^,]*)/g);
+                        if (!matches || matches.length < 3) return;
 
-                    // Trouver le domaine correspondant
-                    const domainId = Object.keys(itemsDatabase).find(d => 
-                        itemsDatabase[d].name === domain
-                    );
+                        let domain = matches[0].replace(/^,?"?|"?$/g, '').replace(/""/g, '"');
+                        let text = matches[1].replace(/^,?"?|"?$/g, '').replace(/""/g, '"');
+                        let score = matches[2].replace(/^,?"?|"?$/g, '');
 
-                    if (domainId) {
-                        const item = {
-                            domain: domainId,
-                            domainName: domain,
-                            text: text,
-                            id: `${domainId}_${lineIndex}`
-                        };
-                        selectedItems.push(item);
-
-                        if (score !== '') {
-                            responses[selectedItems.length - 1] = parseInt(score);
+                        // Sanitization
+                        domain = Security.sanitizeCSVValue(domain);
+                        text = Security.sanitizeCSVValue(text);
+                        
+                        // Détecter les formules suspectes
+                        if (domain.startsWith("'") || text.startsWith("'")) {
+                            warnings++;
                         }
-                    }
-                });
 
-                renderSelectedItems();
-                updateSelectedCount();
-                alert('Configuration importée avec succès !');
+                        const domainId = Object.keys(itemsDatabase).find(d => 
+                            itemsDatabase[d].name === domain
+                        );
+
+                        if (domainId) {
+                            const item = {
+                                domain: domainId,
+                                domainName: domain,
+                                text: text,
+                                id: `${domainId}_${lineIndex}`
+                            };
+                            selectedItems.push(item);
+
+                            if (score !== '') {
+                                const validScore = Security.validateScore(score);
+                                if (validScore !== null) {
+                                    responses[selectedItems.length - 1] = validScore;
+                                }
+                            }
+                        }
+                    });
+
+                    renderSelectedItems();
+                    updateSelectedCount();
+                    
+                    if (warnings > 0) {
+                        Security.showAlert(`Configuration importée avec ${warnings} formule(s) neutralisée(s) pour votre sécurité.`, 'warning');
+                    } else {
+                        Security.showAlert('Configuration importée avec succès !', 'success');
+                    }
+                } catch (error) {
+                    Security.showAlert('Erreur lors de l\'import du fichier. Vérifiez le format.', 'error');
+                    console.error('Import error:', error);
+                }
+            };
+
+            reader.onerror = function() {
+                Security.showAlert('Impossible de lire le fichier.', 'error');
             };
 
             reader.readAsText(file);
         }
 
-        // Export PDF
         function exportToPDF() {
             window.print();
         }
 
-        // Navigation entre phases
+        // ========================================
+        // NAVIGATION
+        // ========================================
+        
         function switchPhase(phaseNumber) {
             document.querySelectorAll('.phase').forEach(p => p.classList.remove('active'));
             document.getElementById(`phase${phaseNumber}`).classList.add('active');
