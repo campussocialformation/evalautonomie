@@ -268,6 +268,28 @@
             opacity: 0.5;
         }
 
+        .item.selected {
+            background: linear-gradient(135deg, var(--primary-light), var(--primary));
+            border-color: var(--primary);
+            color: white;
+            box-shadow: var(--shadow-md);
+        }
+
+        .item.selected .item-grip,
+        .item.selected .item-text {
+            color: white;
+        }
+
+        .item.selected .item-add-btn {
+            background: white;
+            color: var(--primary);
+        }
+
+        .item.selected .item-add-btn:hover {
+            background: var(--bg-card);
+            color: var(--primary-dark);
+        }
+
         .item-grip {
             color: var(--text-tertiary);
             font-size: 1.2rem;
@@ -1233,6 +1255,13 @@
             }
 
             selectedItems.push(item);
+
+            // Ajouter la classe selected à l'item dans la bibliothèque
+            const itemElement = document.querySelector(`.item[data-domain="${domainId}"][data-index="${index}"]`);
+            if (itemElement) {
+                itemElement.classList.add('selected');
+            }
+
             renderSelectedItems();
             updateSelectedCount();
         }
@@ -1281,6 +1310,20 @@
         }
 
         function removeItem(itemId) {
+            // Trouver l'item à retirer pour obtenir ses infos
+            const itemToRemove = selectedItems.find(i => i.id === itemId);
+
+            if (itemToRemove) {
+                // Extraire domain et index de l'ID (format: "domainId_index")
+                const [domainId, index] = itemToRemove.id.split('_');
+
+                // Retirer la classe selected de l'item dans la bibliothèque
+                const itemElement = document.querySelector(`.item[data-domain="${domainId}"][data-index="${index}"]`);
+                if (itemElement) {
+                    itemElement.classList.remove('selected');
+                }
+            }
+
             selectedItems = selectedItems.filter(i => i.id !== itemId);
             renderSelectedItems();
             updateSelectedCount();
@@ -1293,6 +1336,11 @@
 
         function clearSelection() {
             if (confirm('Voulez-vous vraiment effacer tous les items sélectionnés ?')) {
+                // Retirer la classe selected de tous les items dans la bibliothèque
+                document.querySelectorAll('.item.selected').forEach(itemElement => {
+                    itemElement.classList.remove('selected');
+                });
+
                 selectedItems = [];
                 renderSelectedItems();
                 updateSelectedCount();
@@ -1624,9 +1672,23 @@
                         }
                     });
 
+                    // Retirer toutes les anciennes surbrillances
+                    document.querySelectorAll('.item.selected').forEach(itemElement => {
+                        itemElement.classList.remove('selected');
+                    });
+
+                    // Ajouter la surbrillance aux items importés
+                    selectedItems.forEach(item => {
+                        const [domainId, index] = item.id.split('_');
+                        const itemElement = document.querySelector(`.item[data-domain="${domainId}"][data-index="${index}"]`);
+                        if (itemElement) {
+                            itemElement.classList.add('selected');
+                        }
+                    });
+
                     renderSelectedItems();
                     updateSelectedCount();
-                    
+
                     if (warnings > 0) {
                         Security.showAlert(`Configuration importée avec ${warnings} formule(s) neutralisée(s) pour votre sécurité.`, 'warning');
                     } else {
@@ -1676,6 +1738,11 @@
 
         function resetAll() {
             if (confirm('Voulez-vous vraiment recommencer ? Toutes les données seront perdues.')) {
+                // Retirer la classe selected de tous les items dans la bibliothèque
+                document.querySelectorAll('.item.selected').forEach(itemElement => {
+                    itemElement.classList.remove('selected');
+                });
+
                 selectedItems = [];
                 responses = {};
                 renderSelectedItems();
