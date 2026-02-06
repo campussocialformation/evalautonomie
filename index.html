@@ -636,6 +636,106 @@
             color: var(--text-tertiary);
         }
 
+        /* Détail des items par domaine */
+        .results-detail {
+            margin: 2.5rem 0;
+        }
+
+        .results-detail h3 {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.4rem;
+            color: var(--primary-dark);
+            margin-bottom: 1.5rem;
+        }
+
+        .detail-domain {
+            margin-bottom: 2rem;
+        }
+
+        .detail-domain-header {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--primary);
+            padding: 0.75rem 1rem;
+            background: linear-gradient(135deg, rgba(26, 95, 95, 0.08), rgba(26, 95, 95, 0.03));
+            border-radius: 8px;
+            margin-bottom: 0.5rem;
+            border-left: 4px solid var(--primary);
+        }
+
+        .detail-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.6rem 1rem;
+            border-bottom: 1px solid var(--border);
+            gap: 1rem;
+        }
+
+        .detail-item:last-child {
+            border-bottom: none;
+        }
+
+        .detail-item-text {
+            flex: 1;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            line-height: 1.4;
+        }
+
+        .detail-item-score {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex-shrink: 0;
+        }
+
+        .score-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            font-weight: 700;
+            font-size: 0.9rem;
+            color: white;
+        }
+
+        .score-badge.score-0 {
+            background-color: var(--error);
+        }
+
+        .score-badge.score-1 {
+            background-color: var(--warning);
+        }
+
+        .score-badge.score-2 {
+            background-color: #5a9fd4;
+        }
+
+        .score-badge.score-3 {
+            background-color: var(--success);
+        }
+
+        .score-label {
+            font-size: 0.8rem;
+            color: var(--text-tertiary);
+            min-width: 90px;
+        }
+
+        @media (max-width: 768px) {
+            .detail-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.5rem;
+            }
+
+            .detail-item-score {
+                align-self: flex-end;
+            }
+        }
+
         .chart-container {
             background: var(--bg-card);
             padding: 2rem;
@@ -902,6 +1002,8 @@
                 </div>
 
                 <div class="results-grid" id="resultsGrid"></div>
+
+                <div class="results-detail" id="resultsDetail"></div>
 
                 <div class="info-box">
                     <strong>Interprétation des scores :</strong><br>
@@ -1526,7 +1628,83 @@
             grid.innerHTML = '';
             grid.appendChild(fragment);
 
+            renderItemsDetail(resultsByDomain);
             renderChart(resultsByDomain);
+        }
+
+        function renderItemsDetail(resultsByDomain) {
+            const scoreLabels = [
+                { value: 0, label: 'Non acquis' },
+                { value: 1, label: 'En cours' },
+                { value: 2, label: 'Partiellement' },
+                { value: 3, label: 'Acquis' }
+            ];
+
+            const detail = document.getElementById('resultsDetail');
+            const fragment = document.createDocumentFragment();
+
+            const title = document.createElement('h3');
+            title.textContent = 'Détail des scores par item';
+            fragment.appendChild(title);
+
+            const domainItems = {};
+            selectedItems.forEach((item, index) => {
+                if (responses[index] === undefined) return;
+                if (!domainItems[item.domain]) {
+                    domainItems[item.domain] = {
+                        name: item.domainName,
+                        items: []
+                    };
+                }
+                domainItems[item.domain].items.push({
+                    text: item.text,
+                    score: responses[index]
+                });
+            });
+
+            Object.keys(domainItems).forEach(domainId => {
+                const domain = domainItems[domainId];
+
+                const domainDiv = document.createElement('div');
+                domainDiv.className = 'detail-domain';
+
+                const header = document.createElement('div');
+                header.className = 'detail-domain-header';
+                header.textContent = domain.name;
+                domainDiv.appendChild(header);
+
+                domain.items.forEach(item => {
+                    const row = document.createElement('div');
+                    row.className = 'detail-item';
+
+                    const textDiv = document.createElement('div');
+                    textDiv.className = 'detail-item-text';
+                    textDiv.textContent = item.text;
+
+                    const scoreDiv = document.createElement('div');
+                    scoreDiv.className = 'detail-item-score';
+
+                    const badge = document.createElement('span');
+                    badge.className = 'score-badge score-' + item.score;
+                    badge.textContent = item.score;
+
+                    const label = document.createElement('span');
+                    label.className = 'score-label';
+                    label.textContent = scoreLabels[item.score].label;
+
+                    scoreDiv.appendChild(badge);
+                    scoreDiv.appendChild(label);
+
+                    row.appendChild(textDiv);
+                    row.appendChild(scoreDiv);
+                    domainDiv.appendChild(row);
+                });
+
+                fragment.appendChild(domainDiv);
+            });
+
+            detail.innerHTML = '';
+            detail.appendChild(fragment);
         }
 
         function renderChart(resultsByDomain) {
